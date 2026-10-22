@@ -48,12 +48,17 @@ if a.list_models or not a.model:
 
 text = base64.b64decode(a.text_b64).decode("utf-8") if a.text_b64 else ""
 if text and a.model:
-    prompt = (a.style.strip() + "\n\n" + text) if a.style.strip() else text
+    style = a.style.strip()
+    sys_style = style[4:].strip() if style.startswith("SYS:") else ""
+    # documented Gemini TTS pattern: a one-line direction ending in ':' then the words to speak
+    prompt = text if (sys_style or not style) else f"{style.rstrip(':')}: {text}"
     report["takes"] = {}
     for voice in [v.strip() for v in a.voices.split(",") if v.strip()]:
         body = {"contents": [{"parts": [{"text": prompt}]}],
                 "generationConfig": {"responseModalities": ["AUDIO"],
                                      "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}}}}
+        if sys_style:
+            body["systemInstruction"] = {"parts": [{"text": sys_style}]}
         for attempt in range(3):
             t0 = time.time()
             st, js = call("POST", f"models/{a.model}:generateContent", body)
