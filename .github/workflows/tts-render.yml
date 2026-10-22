@@ -1,0 +1,54 @@
+name: tts-render
+run-name: tts ${{ inputs.tag }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "label for this run"
+        required: true
+      model:
+        description: "Gemini TTS model id (blank = only list TTS models)"
+        required: false
+        default: ""
+      voices:
+        description: "comma list of prebuilt voice names"
+        required: false
+        default: ""
+      style:
+        description: "style instructions placed before the text"
+        required: false
+        default: ""
+      text_b64:
+        description: "narration text, base64 (UTF-8)"
+        required: false
+        default: ""
+
+concurrency:
+  group: tts-render-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: render
+        env:
+          GEMINI_API_KEY: ${{ secrets.LLM_BATCH_GEMINI_KEY }}
+          TEXT_B64: ${{ inputs.text_b64 }}
+          STYLE: ${{ inputs.style }}
+          VOICES: ${{ inputs.voices }}
+          MODEL: ${{ inputs.model }}
+        run: |
+          python tools/tts_render.py --text-b64 "$TEXT_B64" --voices "$VOICES" \
+            --model "$MODEL" --style "$STYLE" --out out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tts-${{ inputs.tag }}
+          path: out/
+          retention-days: 7
