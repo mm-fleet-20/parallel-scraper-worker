@@ -49,6 +49,10 @@ if a.list_models or not a.model:
 text = base64.b64decode(a.text_b64).decode("utf-8") if a.text_b64 else ""
 if text and a.model:
     style = a.style.strip()
+    lang = ""
+    if style.startswith("LANG:"):  # e.g. "LANG:en-IN" or "LANG:en-IN | direction text"
+        lang, _, style = style[5:].partition("|")
+        lang, style = lang.strip(), style.strip()
     sys_style = style[4:].strip() if style.startswith("SYS:") else ""
     # documented Gemini TTS pattern: a one-line direction ending in ':' then the words to speak
     prompt = text if (sys_style or not style) else f"{style.rstrip(':')}: {text}"
@@ -59,6 +63,8 @@ if text and a.model:
                                      "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}}}}
         if sys_style:
             body["systemInstruction"] = {"parts": [{"text": sys_style}]}
+        if lang:
+            body["generationConfig"]["speechConfig"]["languageCode"] = lang
         for attempt in range(3):
             t0 = time.time()
             st, js = call("POST", f"models/{a.model}:generateContent", body)
